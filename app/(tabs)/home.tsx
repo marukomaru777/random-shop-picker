@@ -1,166 +1,82 @@
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
-import * as Linking from 'expo-linking';
-import * as Location from 'expo-location';
-import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Button,
-  Dimensions,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import MapView, { Marker, Region } from 'react-native-maps';
+import React, { useState, useEffect, useRef } from 'react';
+import { ActivityIndicator, Button, Dimensions, ScrollView, StyleSheet, Text, View, Pressable, Platform, Animated, PanResponder } from 'react-native';
+import { Region } from 'react-native-maps'; // 只需要 Region 類型
+import { FilterSection } from '../components/filterSection';
+import { ShopInfoCard } from '../components/shopInfoCard';
+import MapSection from '../components/mapSection'; // 導入地圖組件
+import { useShopFinder } from '../hooks/useShopFinder';
+import { useUserLocation } from '../hooks/useUserLocation';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 
-// ⚠️ 提醒：在實際生產環境中，請勿將 API Key 直接寫在前端程式碼中！
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 0.02;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
-// 定義 Place 資料介面 (根據 Google Places API 回傳結構)
-interface GooglePlace {
-  name: string;
-  vicinity: string;
-  rating?: number;
-  user_ratings_total?: number;
-  geometry: {
-    location: {
-      lat: number;
-      lng: number;
-    };
-  };
-  place_id: string;
-}
+// 底部控制面板的高度定義
+const COLLAPSED_HEIGHT = 60; // 收起狀態的固定高度
+const EXPANDED_HEIGHT_PERCENT = 0.45; // 展開狀態的最大高度百分比
 
-// 距離選項定義
-const RADIUS_OPTIONS = [
-  { label: '500m', value: 500 },
-  { label: '1km', value: 1000 },
-  { label: '1.5km', value: 1500 },
-  { label: '2km', value: 2000 },
-];
+export default function HomeScreen() {
+  // 獲取安全區域內邊距
+  const insets = useSafeAreaInsets();
+  const { location, errorMsg: locationError, isLoadingLocation } = useUserLocation();
+  const { place, isSearching, filters, actions } = useShopFinder(location);
 
-// 價格選項定義 (0: 不限, 1: $, 2: $$, 3: $$$, 4: $$$$)
-const PRICE_OPTIONS = [1, 2, 3, 4];
+  // --- 狀態管理篩選器展開/收起 ---
+  const [isExpanded, setIsExpanded] = useState(true);
 
-export default function RandomShopSelectorScreen() {
-  // 定義 State 的型別
-  const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
-  const [place, setPlace] = useState<GooglePlace | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  // --- 店家資訊卡片狀態 ---
+  const [isCardVisible, setIsCardVisible] = useState(true); // 控制卡片是否顯示
 
-  // === 新增篩選狀態 ===
-  const [radius, setRadius] = useState<number>(1000); // 預設 1 公里
-  const [priceLevel, setPriceLevel] = useState<number>(0); // 預設 0 (不限)
-  const [openNow, setOpenNow] = useState<boolean>(true); // 預設只看營業中
-  // ======================
+  // 拖曳相關狀態 (使用 Animated.Value 和 PanResponder 實現拖曳)
+  const pan = useRef(new Animated.Value(0)).current; // 垂直偏移量
+  
+  // 設置 PanResponder 來處理拖曳手勢
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true, // 允許開始拖曳
+      onMoveShouldSetPanResponder: () => true, // 允許移動時拖曳
+      onPanResponderMove: Animated.event(
+        [
+          null,
+          { dy: pan }, // 將垂直移動量映射到 pan
+        ],
+        { useNativeDriver: false },
+      ),
+      onPanResponderRelease: (e, gestureState) => {
+        // 釋放時，如果向下拖曳超過 50 像素，則關閉卡片
+        if (gestureState.dy > 50) {
+            setIsCardVisible(false);
+        }
+        // 否則，將卡片吸附回原位
+        Animated.spring(pan, {
+          toValue: 0,
+          useNativeDriver: false,
+          bounciness: 0, // 移除彈性效果
+        }).start();
+      },
+    }),
+  ).current;
 
-  // 取得使用者定位
+
+  // 當成功搜尋到店家後，自動收起篩選器並顯示卡片
   useEffect(() => {
-    (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-
-      if (status !== 'granted') {
-        setErrorMsg('定位權限被拒絕，請在設定中開啟');
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        let loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
-        setLocation(loc.coords);
-      } catch (e) {
-        setErrorMsg('無法取得您的位置');
-      }
-      setIsLoading(false);
-    })();
-  }, []);
-
-  // 呼叫 Google Places API 查詢附近店家
-  const findStore = async () => {
-    if (!location) {
-      Alert.alert('錯誤', '無法取得位置，請稍後再試或檢查權限');
-      return;
+    if (place) {
+      setIsExpanded(false);
+      setIsCardVisible(true); // 搜尋到新結果時重置為可見
+      pan.setValue(0); // 重置拖曳位置
     }
+  }, [place]);
 
-    setIsLoading(true);
-    setPlace(null);
+  const toggleExpanded = () => setIsExpanded(prev => !prev);
+  // ------------------------------------
 
-    try {
-      const { latitude, longitude } = location;
-      const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json`;
-
-      // 構建 API 參數
-      // 使用 Record<string, any> 來容許動態添加參數
-      const params: Record<string, any> = {
-        location: `${latitude},${longitude}`,
-        radius: radius, // 使用距離狀態
-        keyword: 'restaurant|food',
-        type: 'food',
-        rankby: 'prominence', // 注意：若使用 rankby=distance，則不能有 radius，此處使用 prominence 配合 radius
-        key: GOOGLE_API_KEY,
-      };
-
-      // 價格篩選：使用 maxprice 實現「最高價格等級」篩選
-      if (priceLevel > 0) {
-        params.maxprice = priceLevel;
-      }
-
-      // 營業中篩選：使用 opennow
-      if (openNow) {
-        params.opennow = true;
-      }
-
-      const res = await axios.get<{ results: GooglePlace[] }>(url, { params });
-      const results = res.data.results;
-
-      if (results.length === 0) {
-        Alert.alert('通知', '很抱歉，在您設定的條件下沒有找到店家，請嘗試放寬篩選條件。');
-        return;
-      }
-
-      // 隨機挑一間
-      const randomIndex = Math.floor(Math.random() * results.length);
-      setPlace(results[randomIndex]);
-    } catch (error: any) {
-      Alert.alert('錯誤', '搜尋失敗，請稍後再試');
-      console.error('API 錯誤:', error.response?.data || error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 導航函式
-  const navigateToStore = () => {
-    if (!place) return;
-    const { lat, lng } = place.geometry.location;
-    // 使用更標準的 Google Maps URL 格式
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
-    Linking.openURL(url).catch(() => {
-      Alert.alert('錯誤', '無法開啟 Google 地圖應用程式');
-    });
-  };
-
-  // 根據位置決定地圖顯示的 Region
+  // 計算地圖 Region
   const getMapRegion = (): Region => {
-    const defaultRegion: Region = {
-      latitude: 25.033, // 預設值
-      longitude: 121.5654,
-      latitudeDelta: LATITUDE_DELTA,
-      longitudeDelta: LONGITUDE_DELTA,
-    };
-
     if (place) {
       return {
         latitude: place.geometry.location.lat,
@@ -177,367 +93,184 @@ export default function RandomShopSelectorScreen() {
         longitudeDelta: LONGITUDE_DELTA,
       };
     }
-    return defaultRegion;
+    // 預設位置 (台北 101)
+    return {
+      latitude: 25.033,
+      longitude: 121.5654,
+      latitudeDelta: LATITUDE_DELTA,
+      longitudeDelta: LONGITUDE_DELTA,
+    };
   };
 
-  // Helper function for price level display
-  const getPriceDisplay = (level: number) => {
-    return '$'.repeat(level);
-  };
+  // 底部控制面板的固定類名
+  const controlClassesBase = "bg-white px-5 rounded-t-3xl shadow-lg z-20 w-full absolute bottom-0 transition-all duration-300";
 
-  return (
-    <View style={styles.container}>
-      {/* 頂部控制區 - 包含篩選條件 */}
-      <ScrollView style={styles.topControlArea}>
-        <Text style={styles.headerText}>🤔 午餐吃什麼？</Text>
+  // 動態計算高度樣式
+  const controlStyle = isExpanded
+    ? { height: height * EXPANDED_HEIGHT_PERCENT + insets.bottom }
+    : { height: COLLAPSED_HEIGHT + insets.bottom };
 
-        {/* 1. 距離篩選 (Radius) */}
-        <View style={styles.filterGroup}>
-          <Text style={styles.filterLabel}>
-            距離上限:{' '}
-            <Text style={styles.currentValue}>
-              {RADIUS_OPTIONS.find((opt) => opt.value === radius)?.label || ''}
-            </Text>
-          </Text>
-          <View style={styles.buttonGroup}>
-            {RADIUS_OPTIONS.map((opt) => (
-              <TouchableOpacity
-                key={opt.value}
-                style={[styles.filterButton, radius === opt.value && styles.filterButtonActive]}
-                onPress={() => setRadius(opt.value)}
-              >
-                <Text
-                  style={[
-                    styles.filterButtonText,
-                    radius === opt.value && styles.filterButtonTextActive,
-                  ]}
-                >
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+  // 動態計算 ShopInfoCard 的 bottom 位置 (關鍵：跟著底部面板的高度移動)
+  const bottomSheetHeight = isExpanded
+    ? height * EXPANDED_HEIGHT_PERCENT + insets.bottom
+    : COLLAPSED_HEIGHT + insets.bottom;
 
-        {/* 2. 價格篩選 (Price Level) */}
-        <View style={styles.filterGroup}>
-          <Text style={styles.filterLabel}>
-            最高價格:{' '}
-            <Text style={styles.currentValue}>
-              {priceLevel === 0 ? '不限' : getPriceDisplay(priceLevel) + ' 以下'}
-            </Text>
-          </Text>
-          <View style={styles.buttonGroup}>
-            {PRICE_OPTIONS.map((level) => (
-              <TouchableOpacity
-                key={level}
-                style={[
-                  styles.filterButton,
-                  priceLevel === level && styles.filterButtonActive,
-                  { minWidth: 50 },
-                ]}
-                onPress={() => setPriceLevel(level)}
-              >
-                <Text
-                  style={[
-                    styles.filterButtonText,
-                    priceLevel === level && styles.filterButtonTextActive,
-                  ]}
-                >
-                  {getPriceDisplay(level)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-            {/* 不限按鈕 */}
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                priceLevel === 0 && styles.filterButtonActive,
-                { minWidth: 50 },
-              ]}
-              onPress={() => setPriceLevel(0)}
-            >
-              <Text
-                style={[styles.filterButtonText, priceLevel === 0 && styles.filterButtonTextActive]}
-              >
-                不限
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+  const cardBottom = bottomSheetHeight + 16; // 底部面板高度 + 16px (Margin)
 
-        {/* 3. 營業中篩選 (Open Now) */}
-        <View style={styles.filterGroup}>
-          <View style={styles.switchRow}>
-            <Text style={styles.filterLabel}>
-              <Ionicons
-                name={openNow ? 'time' : 'time-outline'} // 更新為新版 Ionicons 名稱 (v6+)
-                size={16}
-                color={openNow ? '#4682B4' : '#666'}
-              />{' '}
-              只顯示營業中:{' '}
-              <Text style={styles.currentValue}>{openNow ? '是' : '否 (包含已打烊)'}</Text>
-            </Text>
-            <Switch
-              trackColor={{ false: '#767577', true: '#81b0ff' }}
-              thumbColor={openNow ? '#4682B4' : '#f4f3f4'}
-              ios_backgroundColor='#3e3e3e'
-              onValueChange={setOpenNow}
-              value={openNow}
-            />
-          </View>
-        </View>
-
-        {/* 抽餐廳按鈕 */}
-        <View style={{ marginTop: 20 }}>
-          <Button
-            title={isLoading ? '搜尋中...' : '隨機抽一間符合條件的餐廳'}
-            onPress={findStore}
-            disabled={isLoading || !!errorMsg || !location}
-            color='#FF6347'
-          />
-        </View>
-
-        {/* 狀態訊息 */}
-        {(isLoading || errorMsg) && (
-          <View style={{ paddingVertical: 10 }}>
-            {isLoading && (
-              <View style={styles.statusRow}>
-                <ActivityIndicator size='small' color='#FF6347' />
-                <Text style={styles.statusText}>
-                  {location ? '正在搜尋店家...' : '正在取得您的位置...'}
-                </Text>
-              </View>
-            )}
-            {errorMsg && (
-              <Text style={styles.errorText}>
-                <Ionicons name='warning' size={16} color='#B22222' /> {errorMsg}
-              </Text>
-            )}
-          </View>
-        )}
-      </ScrollView>
-
-      {/* 店家資訊卡片 */}
-      <ScrollView style={styles.infoScrollArea}>
-        {place ? (
-          <View style={styles.placeCard}>
-            <Text style={styles.placeName}>
-              <Ionicons name='restaurant' size={24} color='#333' /> {place.name}
-            </Text>
-            <View style={styles.detailRow}>
-              <Ionicons name='map-outline' size={16} color='#666' />
-              <Text style={styles.placeDetail}>地址：{place.vicinity}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Ionicons name='star' size={16} color='#FFD700' />
-              <Text style={styles.placeDetail}>
-                評分：
-                <Text style={{ fontWeight: 'bold' }}>{place.rating || '暫無評分'}</Text> (共{' '}
-                {place.user_ratings_total || 0} 則)
-              </Text>
-            </View>
-            <View style={{ marginTop: 15 }}>
-              <Button title='立即導航 (Google 地圖)' onPress={navigateToStore} color='#4682B4' />
-            </View>
-          </View>
-        ) : (
-          <View style={styles.placeholderCard}>
-            <Ionicons name='map' size={50} color='#ccc' />
-            <Text style={{ color: '#666', marginTop: 10 }}>
-              {location && !isLoading ? '點擊按鈕，開始尋找您的幸運餐廳！' : '正在等待定位...'}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
-
-      {/* 地圖顯示區 */}
-      <View style={styles.mapContainer}>
-        <MapView
-          style={styles.map}
-          region={getMapRegion()}
-          showsUserLocation={true}
-          scrollEnabled={!!place}
-          zoomEnabled={!!place}
-        >
-          {/* 顯示使用者位置的 Marker */}
-          {!place && location && (
-            <Marker
-              coordinate={{
-                latitude: location.latitude,
-                longitude: location.longitude,
-              }}
-              title='我的位置'
-              pinColor='blue'
-            />
-          )}
-
-          {/* 顯示抽到的店家 Marker */}
-          {place && (
-            <Marker
-              coordinate={{
-                latitude: place.geometry.location.lat,
-                longitude: place.geometry.location.lng,
-              }}
-              title={place.name}
-              description={place.vicinity}
-              pinColor='#FF6347'
-            />
-          )}
-        </MapView>
-        <Text style={styles.mapLabel}>{place ? '📍 餐廳位置' : '🗺️ 您的地圖位置'}</Text>
+  // 地圖內容的條件渲染 (已移入 MapSection 組件)
+  const MapViewContent = (
+    // 使用 absolute inset-0 讓地圖佈滿整個螢幕
+    <View className="absolute inset-0">
+      <MapSection
+            location={location}
+            place={place}
+            getMapRegion={getMapRegion}
+      />
+      
+      {/* 地圖標籤 (放在 MapView 內部，使用絕對定位) */}
+      <View className="absolute top-5 left-4 bg-white/90 px-3 py-1 rounded-lg z-10">
+        <Text className="text-xs font-bold text-gray-700">
+          {place ? '📍 餐廳位置' : '🗺️ 您的位置'}
+        </Text>
       </View>
     </View>
   );
+
+
+  return (
+    <SafeAreaProvider>
+      <SafeAreaView style={{ flex: 1 }}>
+        <View className="flex-1 bg-neutral-50">
+          <StatusBar style={isLoadingLocation ? "light" : "dark"} /> 
+          
+          {/* 1. 地圖背景 */}
+          {MapViewContent}
+          
+          {/* 3. 店家資訊區塊 (絕對定位，只有在 place 存在且 isCardVisible 為 true 時才顯示) */}
+          {place && isCardVisible && (
+              <Animated.View 
+                // 定位和拖曳設置
+                className="left-0 right-0 z-30 absolute items-center" 
+                style={{ bottom: cardBottom, transform: [{ translateY: pan }] }} 
+                {...panResponder.panHandlers} // 啟用拖曳
+              >
+                  {/* 卡片容器 (增加背景和陰影) */}
+                  <View className="bg-white rounded-xl shadow-xl w-[90%] overflow-hidden relative">
+                      
+                      {/* 拖曳把手 (視覺指示) */}
+                      <View className="w-full items-center py-1">
+                          <View className="w-10 h-1 bg-gray-300 rounded-full" />
+                      </View>
+                      
+                      {/* 關閉按鈕 (右上角) */}
+                      <Pressable 
+                          onPress={() => setIsCardVisible(false)} 
+                          className="absolute top-2 right-2 p-1.5 rounded-full bg-black/5 z-40"
+                      >
+                          <Ionicons name="close" size={18} color="#333" />
+                      </Pressable>
+
+                      <ShopInfoCard
+                          place={place}
+                          location={location}
+                          isLoading={isSearching}
+                          onNavigate={actions.navigateToStore}
+                      />
+                  </View>
+              </Animated.View>
+          )}
+
+          {/* 2. 底部控制區 (篩選器 + 按鈕 + 狀態/把手) - 絕對定位在最下層 */}
+          <View className={controlClassesBase} style={controlStyle}>
+            
+            {/* 2.1 狀態/把手區域 (始終顯示，位於底部控制區的*頂部*) */}
+            <Pressable 
+                onPress={toggleExpanded} 
+                // 確保 Pressable 在頂部佔據空間
+                className="flex-row justify-center items-center py-1 bg-white/0 h-10 border-b border-gray-100" 
+                disabled={isLoadingLocation} // 定位中禁止展開/收起
+            >
+                {/* 展開/收起狀態提示 (收起時顯示) */}
+                {!isExpanded && (
+                    <View className="flex-1 flex-row items-center justify-start ml-2">
+                        {place ? (
+                            <Text className="text-sm font-semibold text-green-600">
+                                ✨ 已選：{place.name}
+                            </Text>
+                        ) : (
+                            <Text className="text-sm font-semibold text-gray-500">
+                                🔍 點擊展開篩選器
+                            </Text>
+                        )}
+                    </View>
+                )}
+                
+                {/* 錯誤/定位狀態提示 (在展開/收起時都顯示) */}
+                {locationError && (
+                    <Text className="text-red-500 text-xs text-center mr-2">
+                        <Ionicons name="warning" size={12} /> {locationError}
+                    </Text>
+                )}
+
+                {/* 把手圖示 (展開時顯示向下箭頭，收起時顯示向上箭頭) */}
+                <Ionicons 
+                    name={isExpanded ? "chevron-down" : "chevron-up"} 
+                    size={20} 
+                    color="#A0A0A0" 
+                    className="mx-4"
+                />
+                
+            </Pressable>
+
+            {/* 2.2 篩選器內容 ScrollView (只在展開時顯示內容) */}
+            {isExpanded && (
+                <ScrollView 
+                    showsVerticalScrollIndicator={false} 
+                    // flex-1 確保佔滿剩餘空間。pt-2 為把手留出空間
+                    className="flex-1 pt-2" 
+                    contentContainerStyle={{ paddingBottom: insets.bottom + 8 }}
+                >
+                    <FilterSection
+                        radius={filters.radius}
+                        setRadius={filters.setRadius}
+                        priceLevel={filters.priceLevel}
+                        setPriceLevel={filters.setPriceLevel}
+                        openNow={filters.openNow}
+                        setOpenNow={filters.setOpenNow}
+                    />
+
+                    <View className="mt-2 mb-2">
+                        <Button
+                            title={isSearching ? '搜尋中...' : '🎲 隨機抽一間'}
+                            onPress={actions.findStore}
+                            disabled={isSearching || isLoadingLocation || !location}
+                            color="#FF6347"
+                        />
+                    </View>
+                </ScrollView>
+            )}
+
+          </View>
+
+          {/* 4. 定位載入覆蓋層 (只有在 isLoadingLocation 時顯示) */}
+          {isLoadingLocation && (
+              <View className="absolute inset-0 bg-black/50 z-50 justify-center items-center">
+                  <View className="bg-white p-6 rounded-xl shadow-2xl items-center">
+                      <ActivityIndicator size="large" color="#FF6347" />
+                      <Text className="mt-4 text-lg font-bold text-gray-800">
+                          定位中，請稍後...
+                      </Text>
+                      <Text className="text-sm text-gray-500 mt-1">
+                          請確認已開啟定位服務
+                      </Text>
+                  </View>
+              </View>
+          )}
+        </View>
+      </SafeAreaView>
+    </SafeAreaProvider>
+  );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
-  topControlArea: {
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 3,
-    maxHeight: height * 0.45,
-  },
-  headerText: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333',
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  statusText: {
-    marginLeft: 10,
-    fontSize: 14,
-    color: '#666',
-  },
-  errorText: {
-    marginTop: 10,
-    fontSize: 14,
-    color: '#B22222',
-  },
-  // === 新增篩選樣式 ===
-  filterGroup: {
-    marginBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    paddingBottom: 10,
-  },
-  filterLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#444',
-  },
-  currentValue: {
-    fontWeight: 'bold',
-    color: '#FF6347',
-  },
-  buttonGroup: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10, // RN 0.71+ 支持，否則用 margin
-  },
-  filterButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-    backgroundColor: '#F0F0F0',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  filterButtonActive: {
-    backgroundColor: '#FF6347', // 選擇後的顏色
-    borderColor: '#FF6347',
-  },
-  filterButtonText: {
-    color: '#666',
-    fontWeight: '500',
-    fontSize: 14,
-  },
-  filterButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  switchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  // ======================
-  infoScrollArea: {
-    flexGrow: 0,
-    maxHeight: height * 0.35,
-  },
-  placeCard: {
-    margin: 20,
-    padding: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  placeName: {
-    fontSize: 20,
-    fontWeight: '800',
-    marginBottom: 10,
-    color: '#333',
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-  placeDetail: {
-    marginLeft: 8,
-    fontSize: 15,
-    color: '#666',
-  },
-  placeholderCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: 20,
-    paddingVertical: 30,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    borderStyle: 'dashed',
-  },
-  mapContainer: {
-    flex: 1,
-    position: 'relative',
-    backgroundColor: '#fff',
-  },
-  map: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  mapLabel: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    padding: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 8,
-    fontWeight: 'bold',
-    color: '#333',
-    zIndex: 10,
-  },
-});
+const styles = StyleSheet.create({});
+
