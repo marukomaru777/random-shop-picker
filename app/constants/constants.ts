@@ -13,10 +13,6 @@ export interface GooglePlace {
   place_id: string;
 }
 
-// 底部控制面板的高度定義
-export const COLLAPSED_HEIGHT = 30; // 收起狀態的固定高度
-export const EXPANDED_HEIGHT_PERCENT = 0.6; // 展開時佔螢幕的 90%
-
 // 距離選項定義
 export const RADIUS_OPTIONS = [
   { label: '500m', value: 500 },

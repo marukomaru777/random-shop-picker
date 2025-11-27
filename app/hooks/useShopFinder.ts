@@ -4,9 +4,10 @@ import * as Location from 'expo-location';
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import { GooglePlace, DEFAULT_TYPE_VALUE } from '../constants/constants';
+import { loadApiKey } from '../constants/apiKeyStore';
 
 // from 環境變數
-const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
+// const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 
 export const useShopFinder = (location: Location.LocationObjectCoords | null) => {
   const [place, setPlace] = useState<GooglePlace | null>(null);
@@ -20,15 +21,23 @@ export const useShopFinder = (location: Location.LocationObjectCoords | null) =>
   const [minRating, setMinRating] = useState<number>(0); 
 
   const findStore = async () => {
+    
     if (!location) {
       Alert.alert('錯誤', '無法取得位置，請稍後再試或檢查權限');
       return;
     }
 
-    if (!GOOGLE_API_KEY) {
-      Alert.alert('設定錯誤', '找不到 GOOGLE_API_KEY');
-      return;
+    // 原 findStore 裡開頭加入：
+    const apiKey = await loadApiKey();
+    if (!apiKey) {
+    Alert.alert('請先設定 API 金鑰');
+    return;
     }
+
+    // if (!GOOGLE_API_KEY) {
+    //   Alert.alert('設定錯誤', '找不到 GOOGLE_API_KEY');
+    //   return;
+    // }
 
     setIsSearching(true);
     setPlace(null);
@@ -43,7 +52,7 @@ export const useShopFinder = (location: Location.LocationObjectCoords | null) =>
         location: `${latitude},${longitude}`,
         radius: radius,
         rankby: 'prominence',
-        key: GOOGLE_API_KEY,
+        key: apiKey,
       };
 
       // 根據 selectedTypes 動態設定 API 參數
@@ -67,7 +76,7 @@ export const useShopFinder = (location: Location.LocationObjectCoords | null) =>
       }
       
       if (results.length === 0) {
-        Alert.alert('通知', '很抱歉，在您設定的條件下沒有找到店家，請嘗試放寬篩選條件。');
+        Alert.alert('通知', '很抱歉，在您設定的條件下沒有找到店家，請嘗試放寬篩選條件，或檢查 API Key 是否正確。');
       } else {
         const randomIndex = Math.floor(Math.random() * results.length);
         setPlace(results[randomIndex]);

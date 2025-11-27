@@ -33,7 +33,7 @@ export const ShopSection: React.FC<ShopSectionProps> = ({
   }
 
   return (
-    <View className="mx-5 my-5 p-5 bg-white rounded-xl elevation-5">
+    <View className="mx-5 my-5 p-2 bg-white rounded-xl elevation-5">
       <Text className="text-xl font-extrabold text-gray-800 mb-3 flex-row items-center">
         <Ionicons name="restaurant" size={20} color="#333" /> {place.name}
       </Text>
@@ -43,7 +43,7 @@ export const ShopSection: React.FC<ShopSectionProps> = ({
         <Text className="ml-2 text-gray-600 text-sm flex-1">{place.vicinity}</Text>
       </View>
 
-      <View className="flex-row items-center mb-4">
+      <View className="flex-row items-center mb-2">
         <Ionicons name="star" size={16} color="#FFD700" />
         <Text className="ml-2 text-gray-600 text-sm">
           評分: <Text className="font-bold text-gray-800">{place.rating || 'N/A'}</Text>
@@ -51,8 +51,8 @@ export const ShopSection: React.FC<ShopSectionProps> = ({
         </Text>
       </View>
 
-      <View className="mt-2">
-        <Button title="立即導航 (Google Maps)" onPress={onNavigate} color="#4682B4" />
+      <View>
+        <Button title="立即導航" onPress={onNavigate} color="#4682B4" />
       </View>
     </View>
   );
