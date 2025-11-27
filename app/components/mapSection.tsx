@@ -74,7 +74,7 @@ export default function MapSection({ location, place, getMapRegion }: mapSection
       )}
       
       {/* 地圖標籤 (放在 MapView 內部，使用絕對定位) */}
-      <View className="absolute top-5 left-4 bg-white/90 px-3 py-1 rounded-lg z-10">
+      <View className="absolute top-20 left-4 bg-white/90 px-3 py-1 rounded-lg z-10">
         <Text className="text-xs font-bold text-gray-700">
           {place ? '📍 餐廳位置' : '🗺️ 您的位置'}
         </Text>

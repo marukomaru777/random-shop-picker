@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
-import { PRICE_OPTIONS, RADIUS_OPTIONS } from '../constants/constants';
+import { PRICE_OPTIONS, RADIUS_OPTIONS, TYPE_OPTIONS, RATING_OPTIONS } from '../constants/constants'; 
 
 interface FilterSectionProps {
   radius: number;
@@ -10,6 +10,10 @@ interface FilterSectionProps {
   setPriceLevel: (v: number) => void;
   openNow: boolean;
   setOpenNow: (v: boolean) => void;
+  selectedType: string; 
+  setSelectedType: (v: string) => void;
+  minRating: number;
+  setMinRating: (v: number) => void;
 }
 
 export const FilterSection: React.FC<FilterSectionProps> = ({
@@ -19,14 +23,84 @@ export const FilterSection: React.FC<FilterSectionProps> = ({
   setPriceLevel,
   openNow,
   setOpenNow,
+  selectedType,
+  setSelectedType,
+  minRating,
+  setMinRating,
 }) => {
-  const getPriceDisplay = (level: number) => '$'.repeat(level);
+  const getPriceDisplay = (level: number) => (level === 0 ? '不限' : '$'.repeat(level));
+  
+  const getSelectedTypeLabel = (value: string) => {
+    return TYPE_OPTIONS.find(opt => opt.value === value)?.label || TYPE_OPTIONS[0].label;
+  };
+  
+  const getMinRatingLabel = (value: number) => {
+    return RATING_OPTIONS.find(opt => opt.value === value)?.label || RATING_OPTIONS[0].label;
+  };
 
   return (
     <View className="mb-4">
-      <Text className="text-2xl font-bold text-gray-800 mb-5 px-1">
-        🤔 午餐吃什麼？
-      </Text>
+      {/* 類型篩選 (單選邏輯 - 自動換行) */}
+      <View className="mb-4 border-b border-gray-100 pb-3">
+        <Text className="text-sm font-semibold text-gray-600 mb-2">
+          餐廳類型: <Text className="text-orange-500 font-bold">{getSelectedTypeLabel(selectedType)}</Text>
+        </Text>
+        <View className="flex-row flex-wrap">
+          {TYPE_OPTIONS.map((opt) => {
+            const isSelected = selectedType === opt.value;
+            return (
+              <TouchableOpacity
+                key={opt.value}
+                onPress={() => setSelectedType(opt.value)}
+                className={`m-1 px-4 py-2 rounded-full border ${
+                  isSelected
+                    ? 'bg-orange-500 border-orange-500'
+                    : 'bg-gray-100 border-gray-200'
+                }`}
+              >
+                <Text
+                  className={`text-sm font-medium ${
+                    isSelected ? 'text-white' : 'text-gray-500'
+                  }`}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
+        </View>
+      </View>
+
+      {/*  最低評分篩選 */}
+      <View className="mb-4 border-b border-gray-100 pb-3">
+        <Text className="text-sm font-semibold text-gray-600 mb-2">
+          最低評分: <Text className="text-yellow-500 font-bold">{getMinRatingLabel(minRating)}</Text>
+        </Text>
+        <View className="flex-row flex-wrap gap-2">
+          {RATING_OPTIONS.map((opt) => {
+            const isSelected = minRating === opt.value;
+            return (
+              <TouchableOpacity
+                key={opt.value}
+                onPress={() => setMinRating(opt.value)}
+                className={`px-4 py-2 rounded-full border ${
+                  isSelected
+                    ? 'bg-yellow-500 border-yellow-500' // 使用黃色表示評分
+                    : 'bg-gray-100 border-gray-200'
+                }`}
+              >
+                <Text
+                  className={`text-sm font-medium ${
+                    isSelected ? 'text-white' : 'text-gray-500'
+                  }`}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
+        </View>
+      </View>
 
       {/* 距離篩選 */}
       <View className="mb-4 border-b border-gray-100 pb-3">
@@ -62,6 +136,22 @@ export const FilterSection: React.FC<FilterSectionProps> = ({
           預算: <Text className="text-orange-500 font-bold">{priceLevel === 0 ? '不限' : `${getPriceDisplay(priceLevel)} `}</Text>
         </Text>
         <View className="flex-row flex-wrap gap-2">
+          <TouchableOpacity
+            onPress={() => setPriceLevel(0)}
+            className={`px-4 py-2 rounded-full border items-center ${
+              priceLevel === 0
+                ? 'bg-orange-500 border-orange-500'
+                : 'bg-gray-100 border-gray-200'
+            }`}
+          >
+            <Text
+              className={`text-sm font-medium ${
+                priceLevel === 0 ? 'text-white' : 'text-gray-500'
+              }`}
+            >
+              不限
+            </Text>
+          </TouchableOpacity>
           {PRICE_OPTIONS.map((level) => (
             <TouchableOpacity
               key={level}
@@ -81,22 +171,6 @@ export const FilterSection: React.FC<FilterSectionProps> = ({
               </Text>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity
-            onPress={() => setPriceLevel(0)}
-            className={`px-4 py-2 rounded-full border items-center ${
-              priceLevel === 0
-                ? 'bg-orange-500 border-orange-500'
-                : 'bg-gray-100 border-gray-200'
-            }`}
-          >
-            <Text
-              className={`text-sm font-medium ${
-                priceLevel === 0 ? 'text-white' : 'text-gray-500'
-              }`}
-            >
-              不限
-            </Text>
-          </TouchableOpacity>
         </View>
       </View>
 
