@@ -1,9 +1,24 @@
-# Welcome to your Expo app 👋
+# 🎲 Food Roulette: What to Eat?
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Built With](https://img.shields.io/badge/Built%20With-Expo-lightgrey)](https://expo.dev/)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## App Description
+A simple app that helps you decide what to eat by picking a random restaurant based on your location and preferences.
+
+1. Before picking a restaurant, please set your Google Cloud API Key in the Settings page.
+![image](readme_assets/2.PNG)
+
+2. You can apply filters such as distance, price level, and more.
+![image](readme_assets/1.PNG)
+
+3. The system will randomly select a restaurant that matches your filters.
+![image](readme_assets/3.PNG)
+
+4. You can navigate to the selected restaurant using Google Maps.
+![image](readme_assets/4.jpeg)
 
 ## Get started
-
+Recommended Node.js version: v20.19.6
 1. Install dependencies
 
    ```bash
@@ -16,39 +31,5 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
-
-
-icon庫
-https://icons.expo.fyi/Index
+3. Download the **Expo Go** app on your mobile device.
+Scan the QR code displayed in your terminal or browser — and you’re ready to go!
