@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { ActivityIndicator, Button, Dimensions, ScrollView, Text, View, Pressable } from 'react-native';
 import { Region } from 'react-native-maps'; // 只需要 Region 類型
 import { FilterSection } from '../components/filterSection';
-import { ShopInfoCard } from '../components/shopInfoCard';
-import MapSection from '../components/mapSection'; // 導入地圖組件
+import { ShopSection } from '../components/shopSection';
+import MapSection from '../components/mapSection';
 import { useShopFinder } from '../hooks/useShopFinder';
 import { useUserLocation } from '../hooks/useUserLocation';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -69,7 +69,7 @@ export default function IndexScreen() {
   };
 
   // 底部控制面板的固定類名
-  const controlClassesBase = "bg-white px-5 rounded-t-3xl shadow-lg z-20 w-full absolute transition-all duration-300";
+  const controlClassesBase = "bg-white px-5 rounded-t-3xl z-20 w-full absolute transition-all duration-300";
 
   // 動態計算高度和位置樣式
   const controlStyle = {
@@ -111,15 +111,15 @@ export default function IndexScreen() {
           
           {/* 3. 店家資訊區塊 (絕對定位，只有在 place 存在、isCardVisible 為 true 且篩選器收起時才顯示) */}
           {/* 這裡將 Animated.View 替換為標準 View，並補齊定位樣式 */}
-          {place && isCardVisible && !isExpanded && ( // 修正：新增 !isExpanded 條件
+          {place && isCardVisible && !isExpanded && (
               <View // 使用標準 View
                 // 定位設置 
-                className="left-0 right-0 z-30 absolute items-center" 
+                className="left-5 right-0 z-30 absolute items-left" 
                 style={{ bottom: cardBottom }}
               >
                   {/* 卡片容器 */}
-                  <View className="bg-white rounded-xl shadow-xl w-[90%] overflow-hidden relative">
-                      <ShopInfoCard
+                  <View className="bg-white rounded-xl w-[80%] overflow-hidden relative">
+                      <ShopSection
                           place={place}
                           location={location}
                           isLoading={isSearching}
@@ -184,7 +184,6 @@ export default function IndexScreen() {
                 <ScrollView 
                     showsVerticalScrollIndicator={false} 
                     className="flex-1 pt-2" 
-                    // 內容底部 padding 仍然需要考慮 insets.bottom
                     contentContainerStyle={{ paddingBottom: insets.bottom + 8 }}
                 >
                     <FilterSection
@@ -196,7 +195,6 @@ export default function IndexScreen() {
                       setPriceLevel={filters.setPriceLevel}
                       openNow={filters.openNow}
                       setOpenNow={filters.setOpenNow}
-                      // 🚨 新增最低評分篩選 props
                       minRating={filters.minRating}
                       setMinRating={filters.setMinRating}
                     />
@@ -219,7 +217,7 @@ export default function IndexScreen() {
               <Pressable
                   onPress={toggleExpanded}
                   disabled={isLoadingLocation}
-                  className="absolute right-5 z-40 bg-orange-500 p-4 rounded-full shadow-2xl"
+                  className="absolute right-5 z-40 bg-orange-500 p-4 rounded-full"
                   // 確保它不會被底部面板遮擋，並有足夠的 margin
                   style={{ bottom: COLLAPSED_HEIGHT + insets.bottom + 20 }}
               >
@@ -231,7 +229,7 @@ export default function IndexScreen() {
           {/* 5. 定位載入覆蓋層 (只有在 isLoadingLocation 時顯示) */}
           {isLoadingLocation && (
               <View className="absolute inset-0 bg-black/50 z-50 justify-center items-center">
-                  <View className="bg-white p-6 rounded-xl shadow-2xl items-center">
+                  <View className="bg-white p-6 rounded-xl items-center">
                       <ActivityIndicator size="large" color="#FF6347" />
                       <Text className="mt-4 text-lg font-bold text-gray-800">
                           定位中，請稍後...

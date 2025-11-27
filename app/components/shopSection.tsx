@@ -4,14 +4,14 @@ import React from 'react';
 import { Button, Text, View } from 'react-native';
 import { GooglePlace } from '../constants/constants';
 
-interface ShopInfoCardProps {
+interface ShopSectionProps {
   place: GooglePlace | null;
   location: Location.LocationObjectCoords | null;
   isLoading: boolean;
   onNavigate: () => void;
 }
 
-export const ShopInfoCard: React.FC<ShopInfoCardProps> = ({
+export const ShopSection: React.FC<ShopSectionProps> = ({
   place,
   location,
   isLoading,
