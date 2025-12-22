@@ -13,7 +13,7 @@ export interface GooglePlace {
   place_id: string;
 }
 
-// 距離選項定義
+// 距離選項
 export const RADIUS_OPTIONS = [
   { label: '500m', value: 500 },
   { label: '1km', value: 1000 },
@@ -21,7 +21,7 @@ export const RADIUS_OPTIONS = [
   { label: '2km', value: 2000 },
 ];
 
-// 價格選項定義
+// 價格選項
 export const PRICE_OPTIONS = [1, 2, 3, 4];
 
 // 模擬的餐廳類型選項
@@ -35,8 +35,8 @@ export const TYPE_OPTIONS = [
 export const DEFAULT_TYPE_VALUE = 'food'; // 預設的類型值，代表不限
 
 export const RATING_OPTIONS: { value: number, label: string }[] = [
-    { value: 0, label: '不限' },
-    { value: 3.0, label: '⭐️ 3.0+' },
-    { value: 4.0, label: '⭐️ 4.0+' },
-    { value: 4.5, label: '⭐️ 4.5+' },
+  { value: 0, label: '不限' },
+  { value: 3.0, label: '⭐️ 3.0+' },
+  { value: 4.0, label: '⭐️ 4.0+' },
+  { value: 4.5, label: '⭐️ 4.5+' },
 ];
